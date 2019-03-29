@@ -33,6 +33,19 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
   <xacro:arg name="kinect_xyz" default="$(optenv HUSKY_KINECT_XYZ 0 0 0)" />
   <xacro:arg name="kinect_rpy" default="$(optenv HUSKY_KINECT_RPY 0 0.18 3.14)" />
 
+  <!-- Camera properties -->
+  <xacro:property name="camera_link" value="0.05" />
+  <xacro:property name="camera_inertia">
+    <inertia
+    ixx="1e-6"
+    iyy="1e-6"
+    izz="1e-6"
+    ixy="0.0" ixz="0.0" iyz="0.0" />
+  </xacro:property>
+  <xacro:property name="camera_mass" value="1e-5"/>
+  <xacro:property name="cameraSize" value="0.05)" />
+  <xacro:property name="cameraMass" value="0.1)" />
+
   <xacro:property name="husky_bumper_extend" value="$(optenv HUSKY_FORWARD_BUMPER_EXTEND 0)" />
 
   <xacro:arg name="robot_namespace" default="/" />
@@ -200,7 +213,104 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
     </plugin>
   </gazebo>
 
+  <!-- Camera macro. Adds a box representing a camera below the UAV
+  
+  @param camera_link Length of the camera box
+  @param camera_mass Mass of the camera 
+  @param parent Parent link on which the camera will be fixed
+  @param *origin Block argument defining the origin of the camera with 
+  reference to the parent link.
+  @param *inertia Block argument defining camera inertia.
+  -->
+  <xacro:macro name="cam" params="camera_link camera_mass parent *origin *inertia">
+
+    <!-- Camera link -->
+    <link name="camera_box">
+
+      <!--collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${camera_link} ${camera_link} ${camera_link}"/>
+        </geometry>
+      </collision-->
+
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${camera_link} ${camera_link} ${camera_link}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+
+      <inertial>
+        <mass value="${camera_mass}" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <xacro:insert_block name="inertia"/>
+      </inertial>
+
+    </link>
+
+    <!-- Camera joint with reference to the parent link -->
+    <joint name="camera_joint" type="fixed">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent}"/>
+      <child link="camera_box"/>
+    </joint>
+
+    <!-- camera -->
+    <gazebo reference="camera_box">
+      <sensor type="camera" name="camera1">
+        <update_rate>30.0</update_rate>
+        
+        <camera name="head">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image>
+            <width>800</width>
+            <height>800</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.02</near>
+            <far>300</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+        </camera>
+
+        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+          <alwaysOn>true</alwaysOn>
+          <updateRate>0.0</updateRate>
+          <cameraName>morus/camera1</cameraName>
+          <imageTopicName>image_raw</imageTopicName>
+          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+          <frameName>camera_box</frameName>
+          <hackBaseline>0.07</hackBaseline>
+          <distortionK1>0.0</distortionK1>
+          <distortionK2>0.0</distortionK2>
+          <distortionK3>0.0</distortionK3>
+          <distortionT1>0.0</distortionT1>
+          <distortionT2>0.0</distortionT2>
+        </plugin>
+
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+
+  <xacro:cam
+    camera_link="${camera_link}"
+    camera_mass="${camera_mass}"
+    parent="base_link">
+    <origin xyz="0 0 0.5" rpy="0 0.2 0"/>
+    <xacro:insert_block name="camera_inertia"/>
+  </xacro:cam>
+
   <!-- Optional custom includes. -->
   <xacro:include filename="$(arg urdf_extras)" />
 
 </robot>
+
+
